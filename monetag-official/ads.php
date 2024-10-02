@@ -4,7 +4,7 @@
  * Plugin Name:       Monetag Official
  * Plugin URI:        https://wordpress.org/plugins/monetag-official/
  * Description:       This plugin helps to integrate and manage Monetag ad codes to increase revenue from websites.
- * Version:           1.1.2
+ * Version:           1.1.3
  * Author:            Monetag
  * Author URI:        https://monetag.com/
  * License:           GPL-2.0+

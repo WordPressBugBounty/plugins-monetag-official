@@ -2,8 +2,8 @@
 Contributors: monetag
 Tags: ads, monetization, monetize, adserving, advert, advertising, adrotator, ad network, affiliate, adsense alternative, revenue, pay per click, ppc, popunder, Monetag Media, traffic, visitors, monetise, push notifications
 Requires at least: 3.0.1
-Tested up to: 6.2.2
-Stable tag: 1.1.2
+Tested up to: 6.6.2
+Stable tag: 1.1.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -95,6 +95,9 @@ If you have any questions or need support, please contact us by email contact.us
 1. Easily integrate & manage your site monetization solutions from WordPress dashboard.
 
 == Changelog ==
+
+= 1.1.3 =
+* Minor enhancements to ensure compatibility with future updates
 
 = 1.1.2 =
 * Fix session closing before making any HTTP requests
