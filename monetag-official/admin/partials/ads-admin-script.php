@@ -17,17 +17,21 @@ $zones_directions = $this->setting_helper->get_zones_directions();
 	var zoneNames = <?php echo json_encode($zone_names); ?>;
 	var zoneList = <?php echo json_encode($zone_list); ?>;
 	var zonesDirection = <?php echo json_encode($zones_directions); ?>;
+	var monetagAjaxNonce = <?php echo json_encode(wp_create_nonce(Ads_Admin::AJAX_NONCE_ACTION)); ?>;
 
 	var errorContainer = $(".ads__messages");
 	var defaultTitles = [
-		"The best tag",
-		"Cheerful tag",
-		"Glad tag",
-		"Profitable tag",
+		"BestTag",
+		"CheerfulTag",
+		"GladTag",
+		"ProfitableTag",
 	];
 
+	var titlePattern = /^[A-Za-z0-9_-]+$/;
+	var titleMaxLength = 255;
+
 	function generateRandomTitle() {
-    	var randomIndex = Math.floor(Math.random() * (defaultTitles.length + 1));
+		var randomIndex = Math.floor(Math.random() * defaultTitles.length);
 
 		return defaultTitles[randomIndex];
 	}
@@ -58,7 +62,7 @@ $zones_directions = $this->setting_helper->get_zones_directions();
 		$.ajax({
 			url: ajaxurl,
 			method: 'POST',
-			data: data,
+			data: $.extend({_wpnonce: monetagAjaxNonce}, data),
 			success: onSuccess,
 			error: onError
 		});
@@ -213,18 +217,24 @@ $zones_directions = $this->setting_helper->get_zones_directions();
 		$modal.find('[data-content-tab="new"] form').on('submit', function(e) {
 			e.preventDefault();
 
-			var valueTitle = $('input[data-field-title]').val();
+			var valueTitle = ($('input[data-field-title]').val() || '').trim();
 			var valueRateModelId = $('[data-field-rate-model-id]:checked').val();
+
+			var titleToSend = valueTitle || generateRandomTitle();
+			if (!titlePattern.test(titleToSend) || titleToSend.length > titleMaxLength) {
+				showError("<?php _e('Zone title may contain only Latin letters, digits, - and _ - no spaces (max 255).' , 'monetag'); ?>");
+				return;
+			}
 
 			ajaxAction({
 				action: 'create_zone',
 				direction: currentFormat,
-				title: (valueTitle || '').trim() || generateRandomTitle(),
+				title: titleToSend,
 				rate_model_id: valueRateModelId,
 			}, function(data) {
 				setGroupAction(currentFormat, 'edit');
 				setDirectionEnabled(currentFormat);
-				setDirectionTitle(currentFormat, data.zone &&  data.zone.title ? data.zone.title : valueTitle);
+				setDirectionTitle(currentFormat, data.zone &&  data.zone.title ? data.zone.title : titleToSend);
 				if (!zoneList[currentFormat]) {
 					zoneList[currentFormat] = [];
 				}
@@ -232,8 +242,9 @@ $zones_directions = $this->setting_helper->get_zones_directions();
 					zoneList[currentFormat].push(data.zone);
 					zonesDirection[currentFormat] = data.zone.id;
 				}
-			}, function() {
-				showError("<?php _e('Can not create zone' , 'monetag'); ?>");
+			}, function(xhr) {
+				var serverError = xhr && xhr.responseJSON && xhr.responseJSON.error;
+				showError(serverError || "<?php _e('Can not create zone' , 'monetag'); ?>");
 			});
 
 			hideModal();

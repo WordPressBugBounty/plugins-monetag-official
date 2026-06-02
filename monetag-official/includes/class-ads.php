@@ -69,8 +69,8 @@ class Ads
 		require_once plugin_dir_path(__DIR__) . 'includes/class-ads-loader.php';
 		require_once plugin_dir_path(__DIR__) . 'includes/class-ads-i18n.php';
 		require_once plugin_dir_path(__DIR__) . 'includes/class-ads-settings-helper.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/class-ads-anti-adblock.php';
-		require_once plugin_dir_path(__DIR__) . 'includes/class-ads-anti-adblock-client.php';
+		require_once plugin_dir_path(__DIR__) . 'includes/class-ads-tag-cache.php';
+		require_once plugin_dir_path(__DIR__) . 'includes/class-ads-monetag-client.php';
 		require_once plugin_dir_path(__DIR__) . 'includes/class-ads-zone-helper.php';
 		require_once plugin_dir_path(__DIR__) . 'includes/class-ads-options.php';
 		require_once plugin_dir_path(__DIR__) . 'includes/class-ads-messages.php';
@@ -151,8 +151,6 @@ class Ads
 
 		$this->loader->add_filter('wp_head', $plugin_public, 'insert_verification_code');
 		$this->loader->add_filter('wp_footer', $plugin_public, 'publish_tags');
-
-		$this->loader->add_action('wp_enqueue_scripts', $plugin_public, 'publish_aab_tags');
 	}
 
 	/**

@@ -10,7 +10,7 @@ if (isset($_GET['settings-updated'])) {
 }
 
 
-if ($this->setting_helper->get_anti_adblock_token() && $this->setting_helper->get_publisher_site_id()) {
+if ($this->setting_helper->get_token() && $this->setting_helper->get_publisher_site_id()) {
     if ($this->setting_helper->get_verification_code() || $this->setting_helper->is_publisher_site_verified()) {
         include_once 'ads-admin-formats.php';
         include_once 'ads-admin-script.php';

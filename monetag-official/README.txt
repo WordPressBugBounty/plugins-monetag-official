@@ -3,7 +3,7 @@ Contributors: monetag
 Tags: ads, monetization, monetize, adserving, advert, advertising, adrotator, ad network, affiliate, adsense alternative, revenue, pay per click, ppc, popunder, Monetag Media, traffic, visitors, monetise, push notifications
 Requires at least: 3.0.1
 Tested up to: 6.6.2
-Stable tag: 1.1.3
+Stable tag: 1.1.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -95,6 +95,12 @@ If you have any questions or need support, please contact us by email contact.us
 1. Easily integrate & manage your site monetization solutions from WordPress dashboard.
 
 == Changelog ==
+
+= 1.1.4 =
+* Security: fix CVE-2024-52500 (Broken Access Control). Add capability check (`manage_options`) to admin callbacks and AJAX endpoints so unauthenticated requests and low-privileged users cannot tamper with plugin settings.
+* Security: add WP nonce verification to AJAX handlers and publisher-logout link for CSRF defense in depth.
+* Security: add OAuth-style `state` parameter to the SSP connect URL and verify it in `auto_save_publisher_token` so a crafted link cannot poison the publisher token of an authenticated admin.
+* Fix: `clear_plugin_options()` now also removes the `publisher_site_verified` option on logout and uninstall.
 
 = 1.1.3 =
 * Minor enhancements to ensure compatibility with future updates

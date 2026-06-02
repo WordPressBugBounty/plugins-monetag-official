@@ -15,6 +15,9 @@
             <div class="ads__box-content">
                 <div class="ads__text">
                     <p>
+                        <i><?php _e('Before connecting, add your site in your Monetag Cabinet.', 'monetag');?></i>
+                    </p>
+                    <p>
                         <?php _e('You will be redirected to the Monetag Cabinet', 'monetag');?>
                     </p>
                     <p>
@@ -25,7 +28,7 @@
                     <button class="ads__button" onclick="window.location='<?php echo esc_html($this->token_url()); ?>';">
                         <?php _e('Connect', 'monetag');?>
                     </button>
-                </div>  
+                </div>
             </div>
         </div>
         <div class="ads__text">

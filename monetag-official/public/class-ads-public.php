@@ -13,11 +13,11 @@ class Ads_Public
 	private $setting_helper;
 
 	/**
-	 * Ad-Block file helper instance
+	 * Tag cache service instance
 	 *
-	 * @var Ads_Anti_Adblock
+	 * @var Ads_Tag_Cache
 	 */
-	private $anti_adblock;
+	private $tag_cache;
 
 	/**
 	 * Zones helper instance
@@ -33,41 +33,8 @@ class Ads_Public
 	public function __construct($plugin_name, $version)
 	{
 		$this->setting_helper = new Ads_Settings_Helper($plugin_name);
-		$this->anti_adblock = new Ads_Anti_Adblock($plugin_name, $version);
+		$this->tag_cache = new Ads_Tag_Cache($plugin_name, $version);
 		$this->zone_helper = new Ads_Zone_Helper($plugin_name, $version);
-	}
-
-	/**
-	 * Publish tags for AntiAdBlock zones
-	 */
-	public function publish_aab_tags()
-	{
-		// do not publish tags if setting is activated and user is logged in
-		if ( $this->setting_helper->is_ads_disabled_for_authorized_users() && is_user_logged_in() ) {
-			return;
-		}
-
-		foreach ( Ads_Zone_Helper::get_allowed_directions() as $direction ) {
-			// ignore not activated directions
-			if (!$this->setting_helper->get_field_value( $direction, 'enabled') ) {
-				continue;
-			}
-			$zone_id = $this->setting_helper->get_field_value( $direction, 'zone_id' );
-			// process AAB zones only
-			if (!$this->zone_helper->is_anti_adblock_zone( $zone_id )) {
-				continue;
-			}
-
-			if ($direction === Ads_Zone_Helper::DIRECTION_PUSH_NOTIFICATION) {
-				$this->anti_adblock->ensure_service_worker( $zone_id );
-			}
-
-			// output AAB tag as published inline script to prevent quotes and html tags encoding
-			$this->create_inline_script(
-				$direction,
-				$this->anti_adblock->get( $zone_id )
-			);
-		}
 	}
 
 	/**
@@ -80,12 +47,17 @@ class Ads_Public
 			return;
 		}
 
+		// Attributes missing from this whitelist are stripped by wp_kses and
+		// break the rendered tag.
 		$allowed_html = array(
 			'script' => array(
 				'type' => array(),
 				'src' => array(),
 				'async' => array(),
 				'data-cfasync' => array(),
+				'data-zone' => array(),
+				'onerror' => array(),
+				'onload' => array(),
 			),
 		);
 
@@ -95,41 +67,14 @@ class Ads_Public
 				continue;
 			}
 			$zone_id = $this->setting_helper->get_field_value( $direction, 'zone_id' );
-			// process non AAB zones only
-			if ($this->zone_helper->is_anti_adblock_zone( $zone_id )) {
-				continue;
-			}
 
 			if ($direction === Ads_Zone_Helper::DIRECTION_PUSH_NOTIFICATION) {
-				$this->anti_adblock->ensure_service_worker( $zone_id );
+				$this->tag_cache->ensure_service_worker( $zone_id );
 			}
 
 			// output sanitized tag `as is`
-			echo wp_kses( $this->anti_adblock->get( $zone_id ), $allowed_html ) . PHP_EOL;
+			echo wp_kses( $this->tag_cache->get( $zone_id ), $allowed_html ) . PHP_EOL;
 		}
-	}
-
-	/**
-	 * Register and enqueue custom inline javascript tag
-	 *
-	 * @param string $handler Script handler name
-	 * @param string $content Script content
-	 */
-	private function create_inline_script($handler, $content)
-	{
-		if (empty($content)) {
-			return;
-		}
-		/**
-		 * $handler - script handler name
-		 * $source - register without source path
-		 * $dependencies - no script dependencies required
-		 * $version - no version
-		 * $in_footer - register script placeholder in page footer
-		 */
-		wp_register_script( $handler, '', array(), '', true );
-		wp_enqueue_script( $handler );
-		wp_add_inline_script( $handler, $content );
 	}
 
 	/**

@@ -20,7 +20,7 @@
 			<div class="ads__modal-content-tab" data-content-tab="new">
 				<form action="options.php" method="post">
 					<div>
-						<input name="title" type="text" class="ads__modal-input" data-field-title  placeholder="<?php echo _e('Enter zone name', 'monetag'); ?>" />
+						<input name="title" type="text" class="ads__modal-input" data-field-title pattern="[A-Za-z0-9_-]+" maxlength="255" title="<?php esc_attr_e('Latin letters, digits, - and _ only', 'monetag'); ?>" placeholder="<?php esc_attr_e('Enter zone name', 'monetag'); ?>" />
 					</div>
 
 					<div class="ads__modal-options hidden" data-only-for="nativeads">

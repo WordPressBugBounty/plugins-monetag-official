@@ -59,7 +59,7 @@ $logged_in_disabled = $this->setting_helper->is_ads_disabled_for_authorized_user
 
 						<div class="ads__group-action <?php echo $action === "edit" ? "ads__group-action--active" : "" ?>" data-group-action="edit">
 							<label class="ads__switch">
-								<input type="checkbox" data-action="toggle-enable" data-direction="<?php echo esc_html($direction); ?>" <?php echo isset($enabled_directions[$direction]) ? ' checked="checked"' : '';  ?>>
+								<input type="checkbox" data-action="toggle-enable" data-direction="<?php echo esc_html($direction); ?>" <?php echo !empty($enabled_directions[$direction]) ? ' checked="checked"' : '';  ?>>
 								<span class="ads__switch-slider"></span>
 							</label>
 							<div class="ads__action" data-action="edit" data-direction="<?php echo esc_html($direction); ?>">

@@ -218,10 +218,6 @@
 	background-image: url('../img/format-in_page_push.png');
 }
 
-.ads__card-image--interstitial {
-	background-image: url('../img/format-interstitial.png');
-}
-
 .ads__card-image--vignette {
 	background-image: url('../img/format-vignette.png');
 }

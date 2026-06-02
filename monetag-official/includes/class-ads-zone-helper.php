@@ -6,22 +6,21 @@ class Ads_Zone_Helper
 	const OPTION_ID_LAST_UPDATE_TIME = 'last_update_time';
 
 	const DIRECTION_ONCLICK = 'onclick';
-	const DIRECTION_INTERSTITIAL = 'interstitial';
 	const DIRECTION_PUSH_NOTIFICATION = 'nativeads';
 	const DIRECTION_IN_PAGE_PUSH = 'in_page_push';
 	const DIRECTION_VIGNETTE = 'vignette';
+
+	const ZONE_COUNT_LIMIT_PER_DIRECTION = 10;
 
 	private static $allowed_directions = array(
 		self::DIRECTION_ONCLICK,
 		self::DIRECTION_PUSH_NOTIFICATION,
 		self::DIRECTION_IN_PAGE_PUSH,
-		self::DIRECTION_INTERSTITIAL,
 		self::DIRECTION_VIGNETTE,
 	);
 
 	private static $direction_titles = array(
 		self::DIRECTION_ONCLICK => 'Onclick',
-		self::DIRECTION_INTERSTITIAL => 'Interstitial',
 		self::DIRECTION_PUSH_NOTIFICATION => 'Push Notification',
 		self::DIRECTION_IN_PAGE_PUSH => 'In-page push',
 		self::DIRECTION_VIGNETTE => 'Vignette',
@@ -29,16 +28,15 @@ class Ads_Zone_Helper
 
 	private static $direction_description = array(
 		self::DIRECTION_ONCLICK => 'Well-known full tab ad format',
-		self::DIRECTION_INTERSTITIAL => 'A non-full-screen native banner that overlaps your website content',
 		self::DIRECTION_PUSH_NOTIFICATION => 'The best combination format to OnClick (Popunder)',
 		self::DIRECTION_IN_PAGE_PUSH => 'Ads are displayed directly on your website like a native banner',
 		self::DIRECTION_VIGNETTE => 'Highly effective native banners, with a clean and safe ad feed.',
 	);
 
 	/**
-	 * AntiAdBlock client instance
+	 * Monetag client instance
 	 *
-	 * @var Ads_Anti_Adblock_Client
+	 * @var Ads_Monetag_Client
 	 */
 	private $client;
 
@@ -51,7 +49,7 @@ class Ads_Zone_Helper
 
 	public function __construct($plugin_name, $version)
 	{
-		$this->client = new Ads_Anti_Adblock_Client($plugin_name, $version);
+		$this->client = new Ads_Monetag_Client($plugin_name, $version);
 		$this->options = new Ads_Options($plugin_name, Ads_Options::SECTION_ID_ZONES);
 	}
 
@@ -151,6 +149,22 @@ class Ads_Zone_Helper
 	}
 
 	/**
+	 * @param string $direction
+	 * @return bool
+	 */
+	public function is_zone_creation_limit_reached($direction)
+	{
+		if (!in_array($direction, self::$allowed_directions, true)) {
+			return false;
+		}
+
+		$zones = $this->get_publisher_zones();
+		$direction_zones = isset($zones[$direction]) ? $zones[$direction] : array();
+
+		return count($direction_zones) >= self::ZONE_COUNT_LIMIT_PER_DIRECTION;
+	}
+
+	/**
 	 * Gets all publisher zones with allowed directions
 	 * [
 	 *    site_name =>
@@ -190,23 +204,6 @@ class Ads_Zone_Helper
 		}
 
 		return $zones;
-	}
-
-	/**
-	 * Check zone is Anti AdBlock zone
-	 *
-	 * @param $zoneId
-	 * @return bool
-	 */
-	public function is_anti_adblock_zone($zoneId)
-	{
-		$zones = $this->get_publisher_zone_list();
-
-		if (isset($zones[$zoneId])) {
-			return (bool) $zones[$zoneId]['is_antiadblock'];
-		}
-
-		return false;
 	}
 
 	/**

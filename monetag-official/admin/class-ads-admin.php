@@ -5,7 +5,7 @@
  */
 class Ads_Admin
 {
-	// SSP domain for getting Anti AdBlock token
+	// SSP domain for getting publisher token
 	const SSP_DOMAIN = 'https://publishers.monetag.com';
 
 	// URLs section
@@ -15,6 +15,11 @@ class Ads_Admin
 	const SITES_LIST_URL = 'https://publishers.monetag.com/#/sites/list';
 	const STATISTICS_URL = 'https://publishers.monetag.com/#/statistics';
 	const SIGNUP_URL = 'https://publishers.monetag.com/#/signUp';
+
+	// Nonce actions for CSRF protection
+	const AJAX_NONCE_ACTION = 'monetag_admin_ajax';
+	const LOGOUT_NONCE_ACTION = 'monetag_publisher_logout';
+	const CONNECT_STATE_ACTION = 'monetag_connect_state';
 
 	/**
 	 * The ID of this plugin.
@@ -45,11 +50,11 @@ class Ads_Admin
 	private $zone_helper;
 
 	/**
-	 * Adblock helper instance
+	 * Tag cache service instance
 	 *
-	 * @var Ads_Anti_Adblock
+	 * @var Ads_Tag_Cache
 	 */
-	private $anti_adblock;
+	private $tag_cache;
 
 	/**
 	 * @param string $plugin_name The name of this plugin.
@@ -61,7 +66,7 @@ class Ads_Admin
 		$this->version = $version;
 		$this->setting_helper = new Ads_Settings_Helper($this->plugin_name);
 		$this->zone_helper = new Ads_Zone_Helper($this->plugin_name, $this->version);
-		$this->anti_adblock = new Ads_Anti_Adblock($plugin_name, $this->version);
+		$this->tag_cache = new Ads_Tag_Cache($plugin_name, $this->version);
 	}
 
 	/**
@@ -186,13 +191,24 @@ class Ads_Admin
 	}
 
 	/**
-	 * Get url for getting AntiAdBlock token
+	 * Get url for getting publisher token.
+	 *
+	 * For admins the URL embeds an OAuth-like `state` parameter so the
+	 * callback in `auto_save_publisher_token` can verify the redirect
+	 * actually originates from a Connect click on this site. SSP passes
+	 * the `state` query parameter through unchanged in the return URL.
 	 *
 	 * @return string
 	 */
 	public function token_url()
 	{
-		return self::SSP_DOMAIN . '/#/pub/sites/anti_adblock_token?return=' . base64_encode($this->plugin_url());
+		$return_url = $this->plugin_url();
+
+		if (current_user_can('manage_options')) {
+			$return_url = add_query_arg('state', wp_create_nonce(self::CONNECT_STATE_ACTION), $return_url);
+		}
+
+		return self::SSP_DOMAIN . '/#/pub/sites/anti_adblock_token?return=' . base64_encode($return_url);
 	}
 
 	/**
@@ -211,6 +227,14 @@ class Ads_Admin
 	 */
 	public function redirect_after_update()
 	{
+		if (!isset($_GET['update-publisher-zones']) && !isset($_GET['publisher-logout'])) {
+			return;
+		}
+
+		if (!current_user_can('manage_options')) {
+			return;
+		}
+
 		if (isset($_GET['update-publisher-zones'])) {
 			Ads_Messages::add_message(__('Cache was removed. Synchronization of new zones may process some time. Please, repeat this action in 10 minutes. Thank you.', 'monetag'));
 			wp_redirect($this->plugin_url());
@@ -218,6 +242,7 @@ class Ads_Admin
 		}
 
 		if (isset($_GET['publisher-logout'])) {
+			check_admin_referer(self::LOGOUT_NONCE_ACTION);
 			$this->setting_helper->clear_plugin_options();
 			$this->setting_helper->clear_zone_settings();
 			Ads_Messages::add_message(__('Logout successful', 'monetag'));
@@ -227,41 +252,68 @@ class Ads_Admin
 	}
 
 	/**
-	 * Save publisher Anti AdBlock after redirect from SSP
+	 * Save publisher token after redirect from SSP
 	 * Wordpress action hook (admin_init)
 	 */
 	public function auto_save_publisher_token()
 	{
-		if (isset($_GET['propeller-ads-aab-token'])) {
-			$token = $this->setting_helper->get_anti_adblock_token();
-			$value = sanitize_text_field($_GET['propeller-ads-aab-token']);
-
-			if ($token !== $value) {
-				$this->setting_helper->set_anti_adblock_token($value);
-				$this->zone_helper->update_publisher_zones();
-			}
-
-			$this->auto_save_publisher_site_id();
-			$this->auto_save_verification_code();
-			$this->auto_save_publisher_site_verified();
-
-			wp_redirect($this->plugin_url());
-			exit();
+		if (!isset($_GET['propeller-ads-aab-token'])) {
+			return;
 		}
+
+		if (!current_user_can('manage_options')) {
+			return;
+		}
+
+		// Verify OAuth state parameter to prevent CSRF: the callback must
+		// match a Connect click that originated from this site's admin.
+		$state = isset($_GET['state']) ? sanitize_text_field($_GET['state']) : '';
+		if (!wp_verify_nonce($state, self::CONNECT_STATE_ACTION)) {
+			return;
+		}
+
+		$token = $this->setting_helper->get_token();
+		$value = sanitize_text_field($_GET['propeller-ads-aab-token']);
+
+		if ($token !== $value) {
+			$this->setting_helper->set_token($value);
+			$this->zone_helper->update_publisher_zones();
+		}
+
+		$this->auto_save_publisher_site_id();
+		$this->auto_save_verification_code();
+		$this->auto_save_publisher_site_verified();
+
+		wp_redirect($this->plugin_url());
+		exit();
 	}
 
 	public function ajax_action_create_zone()
 	{
+		if (!current_user_can('manage_options')) {
+			wp_die('Forbidden', '', ['response' => 403]);
+		}
+
+		check_ajax_referer(self::AJAX_NONCE_ACTION);
+
 		$title = sanitize_text_field($_POST["title"]);
 		$direction = sanitize_text_field($_POST["direction"]);
 
-		if (empty($direction)) {
-			wp_die('Bad request', '', [
-				'response' => 400,
-			]);
+		if (!in_array($direction, Ads_Zone_Helper::get_allowed_directions(), true)) {
+			wp_send_json([
+				'error' => __('Direction is required.', 'monetag'),
+			], 400);
+			return;
 		}
 
-		$token = $this->setting_helper->get_anti_adblock_token();
+		if ($this->zone_helper->is_zone_creation_limit_reached($direction)) {
+			wp_send_json([
+				'error' => __('You have reached the per-direction zone limit for this site. Use an existing zone, manage zones in Monetag SSP, or contact your account manager.', 'monetag'),
+			], 400);
+			return;
+		}
+
+		$token = $this->setting_helper->get_token();
 		$publisherSiteId = $this->setting_helper->get_publisher_site_id();
 
 		$data = [
@@ -278,25 +330,32 @@ class Ads_Admin
 		$this->zone_helper->update_publisher_zones();
 
 		if (!$zone || empty($zone['id'])) {
-			wp_die('Zone creation error', '', [
-				'response' => 400
-			]);
-		} else {
-			$this->setting_helper->set_field_value($direction, 'zone_id', $zone['id']);
-			$this->setting_helper->set_field_value($direction, 'enabled', true);
-
 			wp_send_json([
-				'zone'=> [
-					'id' => $zone['id'],
-					'title' => $zone['title'],
-					'direction_name' => $zone['direction_name'],
-				]
-			]);
+				'error' => __('Zone creation failed. Please try again or contact your account manager.', 'monetag'),
+			], 400);
+			return;
 		}
+
+		$this->setting_helper->set_field_value($direction, 'zone_id', $zone['id']);
+		$this->setting_helper->set_field_value($direction, 'enabled', true);
+
+		wp_send_json([
+			'zone' => [
+				'id' => $zone['id'],
+				'title' => $zone['title'],
+				'direction_name' => $zone['direction_name'],
+			]
+		]);
 	}
 
 	public function ajax_action_update_zone_id_option()
 	{
+		if (!current_user_can('manage_options')) {
+			wp_die('Forbidden', '', ['response' => 403]);
+		}
+
+		check_ajax_referer(self::AJAX_NONCE_ACTION);
+
 		$direction = sanitize_text_field($_POST["direction"]);
 		$newValue = (int)$_POST['zone_id'];
 		$oldValue = $this->setting_helper->get_field_value($direction, 'zone_id');
@@ -308,6 +367,12 @@ class Ads_Admin
 
 	public function ajax_action_update_zone_enabled_option()
 	{
+		if (!current_user_can('manage_options')) {
+			wp_die('Forbidden', '', ['response' => 403]);
+		}
+
+		check_ajax_referer(self::AJAX_NONCE_ACTION);
+
 		$direction = sanitize_text_field($_POST["direction"]);
 		$newValue = (int)$_POST['enabled'];
 		$oldValue = $this->setting_helper->get_field_value($direction, 'enabled');
@@ -319,6 +384,12 @@ class Ads_Admin
 
 	public function ajax_action_update_logged_in_disabled()
 	{
+		if (!current_user_can('manage_options')) {
+			wp_die('Forbidden', '', ['response' => 403]);
+		}
+
+		check_ajax_referer(self::AJAX_NONCE_ACTION);
+
 		$oldValue = $this->setting_helper->is_ads_disabled_for_authorized_users();
 		$newValue = (int)$_POST['value'];
 
@@ -377,8 +448,8 @@ class Ads_Admin
 		$next_zone_id = $this->setting_helper->get_field_value(Ads_Zone_Helper::DIRECTION_PUSH_NOTIFICATION, 'zone_id');
 
 		if ($prev_zone_id !== $next_zone_id) {
-			$this->anti_adblock->remove_service_worker($prev_zone_id);
-			$this->anti_adblock->ensure_service_worker($next_zone_id);
+			$this->tag_cache->remove_service_worker($prev_zone_id);
+			$this->tag_cache->ensure_service_worker($next_zone_id);
 		}
 	}
 
@@ -406,7 +477,7 @@ class Ads_Admin
 
 	public function zone_update_event()
 	{
-		if ($this->setting_helper->get_anti_adblock_token()) {
+		if ($this->setting_helper->get_token()) {
 			$this->zone_helper->update_publisher_zones();
 		}
 	}

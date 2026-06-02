@@ -36,21 +36,21 @@ class Ads_Settings_Helper
 	}
 
 	/**
-	 * Get publisher AntiAdBlock token
+	 * Get publisher token
 	 *
 	 * @return string
 	 */
-	public function get_anti_adblock_token()
+	public function get_token()
 	{
 		return $this->options->get_option(self::OPTION_ID_TOKEN);
 	}
 
 	/**
-	 * Store publisher AntiAdBlock token
+	 * Store publisher token
 	 *
 	 * @param string $value
 	 */
-	public function set_anti_adblock_token($value)
+	public function set_token($value)
 	{
 		$this->options->update_option(self::OPTION_ID_TOKEN, $value);
 	}
@@ -129,9 +129,9 @@ class Ads_Settings_Helper
 	}
 
 	/**
-	 * Store publisher AntiAdBlock token
+	 * Store the "disable ads for logged-in users" flag
 	 *
-	 * @param string $value
+	 * @param mixed $value
 	 */
 	public function set_logged_in_disabled($value)
 	{
@@ -271,6 +271,7 @@ class Ads_Settings_Helper
 	{
 		$this->options->delete_option(self::OPTION_ID_DISABLE_ADS_FOR_AUTHORIZED_USERS);
 		$this->options->delete_option(self::OPTION_ID_VERIFICATION_CODE);
+		$this->options->delete_option(self::OPTION_ID_PUBLISHER_SITE_VERIFIED);
 		$this->options->delete_option(self::OPTION_ID_SITE_ID);
 		$this->options->delete_option(self::OPTION_ID_TOKEN);
 	}
